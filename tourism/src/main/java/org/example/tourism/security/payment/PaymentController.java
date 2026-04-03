@@ -1,4 +1,4 @@
-package org.example.tourism.payment;
+package org.example.tourism.security.payment;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.tourism.payment.PaymentRequestDto;
+import org.example.tourism.payment.PaymentResponseDto;
+import org.example.tourism.payment.PaymentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,7 +36,7 @@ public class PaymentController {
             @ApiResponse(responseCode = "400", description = "Invalid booking or payment already completed"),
             @ApiResponse(responseCode = "404", description = "Booking not found")
     })
-    public PaymentResponseDto processPayment(
+    public org.example.tourism.payment.PaymentResponseDto processPayment(
             @Valid @RequestBody PaymentRequestDto paymentRequestDto,
             Authentication authentication) {
 
@@ -51,7 +54,7 @@ public class PaymentController {
             @ApiResponse(responseCode = "200", description = "Payment found"),
             @ApiResponse(responseCode = "404", description = "Payment not found")
     })
-    public PaymentResponseDto getPaymentById(@PathVariable Long id, Authentication authentication) {
+    public org.example.tourism.payment.PaymentResponseDto getPaymentById(@PathVariable Long id, Authentication authentication) {
         return paymentService.getPaymentById(id);
     }
 
@@ -63,7 +66,7 @@ public class PaymentController {
             @ApiResponse(responseCode = "200", description = "Payment found"),
             @ApiResponse(responseCode = "404", description = "Payment not found for this booking")
     })
-    public PaymentResponseDto getPaymentByBooking(@PathVariable Long bookingId, Authentication authentication) {
+    public org.example.tourism.payment.PaymentResponseDto getPaymentByBooking(@PathVariable Long bookingId, Authentication authentication) {
         return paymentService.getPaymentByBooking(bookingId);
     }
 
@@ -75,15 +78,15 @@ public class PaymentController {
             @ApiResponse(responseCode = "400", description = "Payment cannot be refunded"),
             @ApiResponse(responseCode = "404", description = "Payment not found")
     })
-    public ResponseEntity<PaymentResponseDto> refundPayment(@PathVariable Long paymentId) {
-        PaymentResponseDto refundedPayment = paymentService.refundPayment(paymentId);
+    public ResponseEntity<org.example.tourism.payment.PaymentResponseDto> refundPayment(@PathVariable Long paymentId) {
+        org.example.tourism.payment.PaymentResponseDto refundedPayment = paymentService.refundPayment(paymentId);
         return ResponseEntity.ok(refundedPayment);
     }
 
     @GetMapping("/user/me")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Get my payments", description = "Get all payments for the authenticated user")
-    public ResponseEntity<List<PaymentResponseDto>> getMyPayments(Authentication authentication) {
+    public ResponseEntity<List<org.example.tourism.payment.PaymentResponseDto>> getMyPayments(Authentication authentication) {
         Jwt jwt = (Jwt) authentication.getPrincipal();
         Long userId = jwt.getClaim("userId");
         List<PaymentResponseDto> payments = paymentService.getUserPayments(userId);

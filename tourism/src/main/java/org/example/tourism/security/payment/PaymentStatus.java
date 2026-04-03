@@ -1,4 +1,4 @@
-package org.example.tourism.payment;
+package org.example.tourism.security.payment;
 
 public enum PaymentStatus {
     PENDING,
