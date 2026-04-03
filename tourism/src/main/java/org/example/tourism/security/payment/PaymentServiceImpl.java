@@ -1,14 +1,14 @@
-package org.example.tourism.payment;
+package org.example.tourism.security.payment;
 
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.tourism.booking.BookingResponseDto;
 import org.example.tourism.booking.BookingService;
 import org.example.tourism.booking.BookingStatus;
 import org.example.tourism.notification.NotificationService;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,12 +66,12 @@ public class PaymentServiceImpl implements PaymentService {
         // Create payment record
         Payment payment = new Payment();
         payment.setBookingId(booking.getId());
-        payment.setUserId(booking.getUserId());
+        payment.setUserId(booking.getUserId());  // ✅ ADDED - Set userId
         payment.setAmount(booking.getTotalPrice());
         payment.setStatus(success ? PaymentStatus.COMPLETED : PaymentStatus.FAILED);
         payment.setTransactionId(transactionId);
-        payment.setPaymentMethod("CREDIT_CARD");
-        payment.setRefundedAmount(java.math.BigDecimal.ZERO);
+        payment.setPaymentMethod("CREDIT_CARD");  // ✅ ADDED - Default payment method
+        payment.setRefundedAmount(java.math.BigDecimal.ZERO);  // ✅ ADDED
 
         Payment savedPayment = paymentRepository.save(payment);
 
@@ -161,7 +161,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (refundSuccess) {
             payment.setStatus(PaymentStatus.REFUNDED);
-            payment.setRefundedAmount(payment.getAmount());
+            payment.setRefundedAmount(payment.getAmount());  // ✅ Set refunded amount
             Payment refundedPayment = paymentRepository.save(payment);
 
             log.info("✅ Refund successful for payment ID: {}, booking ID: {}", paymentId, payment.getBookingId());

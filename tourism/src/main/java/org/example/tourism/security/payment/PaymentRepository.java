@@ -1,5 +1,7 @@
-package org.example.tourism.payment;
+package org.example.tourism.security.payment;
 
+import org.example.tourism.payment.Payment;
+import org.example.tourism.payment.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,11 +12,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PaymentRepository extends JpaRepository<Payment, Long> {
-    Optional<Payment> findByBookingId(Long bookingId);
+public interface PaymentRepository extends JpaRepository<org.example.tourism.payment.Payment, Long> {
+    Optional<org.example.tourism.payment.Payment> findByBookingId(Long bookingId);
 
     @Query("SELECT p FROM Payment p WHERE p.bookingId IN (SELECT b.id FROM Booking b WHERE b.userId = :userId)")
-    List<Payment> findPaymentsByUserId(@Param("userId") Long userId);
+    List<org.example.tourism.payment.Payment> findPaymentsByUserId(@Param("userId") Long userId);
 
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'COMPLETED'")
     Double getTotalRevenue();

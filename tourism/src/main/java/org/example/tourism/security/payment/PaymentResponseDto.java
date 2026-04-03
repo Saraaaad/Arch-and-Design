@@ -1,6 +1,7 @@
-package org.example.tourism.payment;
+package org.example.tourism.security.payment;
 
 import lombok.Data;
+import org.example.tourism.payment.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

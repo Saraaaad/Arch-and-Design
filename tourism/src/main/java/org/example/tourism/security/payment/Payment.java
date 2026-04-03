@@ -1,8 +1,9 @@
-package org.example.tourism.payment;
+package org.example.tourism.security.payment;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.example.tourism.payment.PaymentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
