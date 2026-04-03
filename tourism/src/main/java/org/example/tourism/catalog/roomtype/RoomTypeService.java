@@ -3,6 +3,7 @@ package org.example.tourism.catalog.roomtype;
 import org.example.tourism.catalog.roomtype.dto.RoomTypeRequestDto;
 import org.example.tourism.catalog.roomtype.dto.RoomTypeResponseDto;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public interface RoomTypeService {
@@ -12,4 +13,9 @@ public interface RoomTypeService {
     List<RoomTypeResponseDto> getRoomTypesByHotel(Long hotelId);
     RoomTypeResponseDto updateRoomType(Long id, RoomTypeRequestDto request);
     void deleteRoomType(Long id);
+    boolean isRoomTypeAvailable(Long roomTypeId, LocalDate checkIn, LocalDate checkOut);
+    RoomTypeResponseDto addRoomTypeImages(Long roomTypeId, List<String> imageUrls);
+    RoomTypeResponseDto removeRoomTypeImage(Long roomTypeId, String imageUrl);
+
+
 }
