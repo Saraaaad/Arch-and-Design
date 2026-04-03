@@ -1,4 +1,4 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.roomtype.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;

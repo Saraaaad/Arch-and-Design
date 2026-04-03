@@ -1,9 +1,10 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.roomtype;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.example.tourism.catalog.hotel.Hotel;
 
 import java.math.BigDecimal;
 

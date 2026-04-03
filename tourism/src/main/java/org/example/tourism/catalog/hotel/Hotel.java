@@ -1,8 +1,9 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.hotel;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.example.tourism.catalog.roomtype.RoomType;
 
 import java.util.ArrayList;
 import java.util.List;

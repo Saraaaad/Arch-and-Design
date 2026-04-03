@@ -1,4 +1,4 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.hotel.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

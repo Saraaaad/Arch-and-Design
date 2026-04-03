@@ -5,6 +5,9 @@ import org.example.tourism.availability.AvailabilityResponseDto;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.tourism.notification.NotificationService;
+import org.example.tourism.security.User;
+import org.example.tourism.security.UserRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,8 @@ public class BookingServiceImpl implements BookingService {
 
     private final BookingRepository bookingRepository;
     private final AvailabilityService availabilityService;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -52,7 +57,7 @@ public class BookingServiceImpl implements BookingService {
         );
 
         if (!overlapping.isEmpty()) {
-            throw new IllegalStateException("Room is already booked for these dates");
+            throw new IllegalArgumentException("Room is already booked for these dates");
         }
 
         Booking booking = new Booking();
@@ -107,6 +112,20 @@ public class BookingServiceImpl implements BookingService {
         Booking savedBooking = bookingRepository.save(booking);
 
         log.info("Booking {} cancelled successfully", bookingId);
+
+        try {
+            User user = userRepository.findById(booking.getUserId())
+                    .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + booking.getUserId()));
+
+            notificationService.sendBookingCancellation(
+                    user.getEmail(),
+                    booking.getId()
+            );
+            log.info("Cancellation notification sent to user: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send cancellation notification for booking {}: {}", bookingId, e.getMessage());
+        }
+
         return mapToDto(savedBooking);
     }
 
@@ -122,6 +141,15 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getUserBookings(Long userId) {
         return bookingRepository.findByUserId(userId).stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingResponseDto> getHotelBookings(Long hotelId) {
+        log.info("Fetching all bookings for hotel ID: {}", hotelId);
+        return bookingRepository.findByHotelId(hotelId).stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
