@@ -1,5 +1,7 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.hotel;
 
+import org.example.tourism.catalog.hotel.dto.HotelRequestDto;
+import org.example.tourism.catalog.hotel.dto.HotelResponseDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 

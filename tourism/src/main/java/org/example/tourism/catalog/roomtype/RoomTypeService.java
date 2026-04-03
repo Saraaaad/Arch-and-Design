@@ -1,4 +1,7 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.roomtype;
+
+import org.example.tourism.catalog.roomtype.dto.RoomTypeRequestDto;
+import org.example.tourism.catalog.roomtype.dto.RoomTypeResponseDto;
 
 import java.util.List;
 

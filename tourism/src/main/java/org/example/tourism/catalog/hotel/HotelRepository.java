@@ -1,4 +1,4 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.hotel;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

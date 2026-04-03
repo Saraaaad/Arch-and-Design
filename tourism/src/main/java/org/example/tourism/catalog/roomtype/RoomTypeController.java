@@ -1,9 +1,11 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.roomtype;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.tourism.catalog.roomtype.dto.RoomTypeRequestDto;
+import org.example.tourism.catalog.roomtype.dto.RoomTypeResponseDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 

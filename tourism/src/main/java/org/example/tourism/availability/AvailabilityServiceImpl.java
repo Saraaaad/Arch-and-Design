@@ -2,8 +2,8 @@ package org.example.tourism.availability;
 
 import org.example.tourism.booking.Booking;
 import org.example.tourism.booking.BookingRepository;
-import org.example.tourism.catalog.RoomType;
-import org.example.tourism.catalog.RoomTypeRepository;
+import org.example.tourism.catalog.roomtype.RoomType;
+import org.example.tourism.catalog.roomtype.RoomTypeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

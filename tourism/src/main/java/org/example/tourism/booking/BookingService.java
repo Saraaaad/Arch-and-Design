@@ -8,4 +8,6 @@ public interface BookingService {
     BookingResponseDto cancelBooking(Long bookingId);
     BookingResponseDto getBooking(Long bookingId);
     List<BookingResponseDto> getUserBookings(Long userId);
+    List<BookingResponseDto> getHotelBookings(Long hotelId);
+
 }

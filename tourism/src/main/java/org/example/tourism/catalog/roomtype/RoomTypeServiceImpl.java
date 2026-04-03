@@ -1,8 +1,12 @@
-package org.example.tourism.catalog;
+package org.example.tourism.catalog.roomtype;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.tourism.catalog.hotel.Hotel;
+import org.example.tourism.catalog.hotel.HotelRepository;
+import org.example.tourism.catalog.roomtype.dto.RoomTypeRequestDto;
+import org.example.tourism.catalog.roomtype.dto.RoomTypeResponseDto;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
