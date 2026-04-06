@@ -32,6 +32,9 @@ public class Hotel {
     @Column(nullable = false)
     private String city;
 
+    @Column(name = "manager_id")
+    private Long ManagerId;
+
     private String country;
 
     private String address;

@@ -55,36 +55,23 @@ public class AdminStatsService {
         Long totalUsers = userRepository.count();
         Long totalHotels = hotelRepository.count();
 
-        List<Booking> confirmedBookings = bookingRepository.findAll().stream()
-                .filter(b -> b.getStatus() == BookingStatus.CONFIRMED)
-                .collect(Collectors.toList());
-
-        Long totalBookings = (long) confirmedBookings.size();
-
-        List<Payment> completedPayments = paymentRepository.findAll().stream()
-                .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
-                .collect(Collectors.toList());
-
-        BigDecimal totalRevenue = completedPayments.stream()
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        List<Booking> allBookings = bookingRepository.findAll();
-        long pending = allBookings.stream().filter(b -> b.getStatus() == BookingStatus.PENDING).count();
-        long confirmed = allBookings.stream().filter(b -> b.getStatus() == BookingStatus.CONFIRMED).count();
-        long cancelled = allBookings.stream().filter(b -> b.getStatus() == BookingStatus.CANCELLED).count();
+        // Use database queries instead of loading all data
+        Long totalBookings = bookingRepository.countByStatus(BookingStatus.CONFIRMED);
+        Long totalRevenue = paymentRepository.sumAmountByStatus(PaymentStatus.COMPLETED);
+        Long pendingBookings = bookingRepository.countByStatus(BookingStatus.PENDING);
+        Long confirmedBookings = bookingRepository.countByStatus(BookingStatus.CONFIRMED);
+        Long cancelledBookings = bookingRepository.countByStatus(BookingStatus.CANCELLED);
 
         return TotalStatsDto.builder()
                 .totalUsers(totalUsers)
                 .totalHotels(totalHotels)
                 .totalBookings(totalBookings)
-                .totalRevenue(totalRevenue.longValue())
-                .pendingBookings(pending)
-                .confirmedBookings(confirmed)
-                .cancelledBookings(cancelled)
+                .totalRevenue(totalRevenue)
+                .pendingBookings(pendingBookings)
+                .confirmedBookings(confirmedBookings)
+                .cancelledBookings(cancelledBookings)
                 .build();
     }
-
     private Map<String, MonthlyStatsDto> getMonthlyStats() {
         Map<String, MonthlyStatsDto> stats = new LinkedHashMap<>();
         LocalDateTime now = LocalDateTime.now();

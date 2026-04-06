@@ -48,6 +48,8 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
         boolean available = overlappingBookings.isEmpty();
 
+
+
         log.info("Availability result: {}, found {} overlapping bookings", available, overlappingBookings.size());
 
         AvailabilityResponseDto response = new AvailabilityResponseDto();

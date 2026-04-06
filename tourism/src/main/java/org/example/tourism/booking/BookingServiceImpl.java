@@ -5,13 +5,18 @@ import org.example.tourism.availability.AvailabilityResponseDto;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.tourism.common.BookingAlreadyCancelledException;
+import org.example.tourism.common.BookingNotAvailableException;
+import org.example.tourism.common.CancellationNotAllowedException;
 import org.example.tourism.notification.NotificationService;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,7 +31,7 @@ public class BookingServiceImpl implements BookingService {
     private final UserRepository userRepository;
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public BookingResponseDto createBooking(BookingRequestDto bookingRequestDto) {
         log.info("Creating booking for roomTypeId: {}, dates: {} to {}",
                 bookingRequestDto.getRoomTypeId(),
@@ -47,7 +52,7 @@ public class BookingServiceImpl implements BookingService {
         );
 
         if (!availability.isAvailable()) {
-            throw new IllegalStateException("Room is not available for the selected dates");
+            throw new BookingNotAvailableException("Room is not available for the selected dates");
         }
 
         List<Booking> overlapping = bookingRepository.findOverlappingBookings(
@@ -57,7 +62,7 @@ public class BookingServiceImpl implements BookingService {
         );
 
         if (!overlapping.isEmpty()) {
-            throw new IllegalArgumentException("Room is already booked for these dates");
+            throw new BookingNotAvailableException("Room is already booked for these dates");
         }
 
         Booking booking = new Booking();
@@ -106,6 +111,13 @@ public class BookingServiceImpl implements BookingService {
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             log.warn("Booking {} is already cancelled", bookingId);
             return mapToDto(booking);
+        }
+        LocalDate today = LocalDate.now();
+        if (booking.getCheckInDate().minusDays(1).isBefore(today)) {
+            throw new CancellationNotAllowedException("Cancellation not allowed within 24 hours of check-in");
+        }
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            throw new BookingAlreadyCancelledException("Booking is already cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
