@@ -1,11 +1,14 @@
 package org.example.tourism.unit.catalog.hotel;
 
 import org.example.tourism.booking.BookingRepository;
+import org.example.tourism.booking.BookingStatus;
 import org.example.tourism.catalog.hotel.*;
 import org.example.tourism.catalog.hotel.dto.*;
 import org.example.tourism.catalog.roomtype.RoomTypeRepository;
 import org.example.tourism.catalog.shared.ReviewRequestDto;
 import org.example.tourism.catalog.shared.ReviewResponseDto;
+import org.example.tourism.common.HotelHasActiveBookingsException;
+import org.example.tourism.common.ReviewNotAllowedException;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
 import org.example.tourism.wishlist.WishlistService;
@@ -129,7 +132,7 @@ class HotelServiceImplTest {
 
     @Test
     void getHotelDetail_ShouldReturnHotel_WhenExists() {
-        // Given - FIXED: Use findByIdWithRoomTypes instead of findById
+        // Given
         when(hotelRepository.findByIdWithRoomTypes(1L)).thenReturn(Optional.of(hotel));
         when(wishlistService.getWishlistCount(1L)).thenReturn(5L);
 
@@ -148,7 +151,7 @@ class HotelServiceImplTest {
 
     @Test
     void getHotelDetail_ShouldThrowException_WhenNotFound() {
-        // Given - FIXED: Use findByIdWithRoomTypes instead of findById
+        // Given
         when(hotelRepository.findByIdWithRoomTypes(999L)).thenReturn(Optional.empty());
 
         // When/Then
@@ -186,9 +189,11 @@ class HotelServiceImplTest {
     }
 
     @Test
-    void deleteHotel_ShouldSucceed_WhenExists() {
+    void deleteHotel_ShouldSucceed_WhenExistsAndNoActiveBookings() {
         // Given
-        when(hotelRepository.existsById(1L)).thenReturn(true);
+        when(hotelRepository.findById(1L)).thenReturn(Optional.of(hotel));
+        when(bookingRepository.countByHotelIdAndStatus(eq(1L), eq(BookingStatus.CONFIRMED))).thenReturn(0L);
+        when(bookingRepository.countByHotelIdAndStatus(eq(1L), eq(BookingStatus.PENDING))).thenReturn(0L);
         doNothing().when(hotelRepository).deleteById(1L);
 
         // When
@@ -201,11 +206,28 @@ class HotelServiceImplTest {
     @Test
     void deleteHotel_ShouldThrowException_WhenNotFound() {
         // Given
-        when(hotelRepository.existsById(999L)).thenReturn(false);
+        when(hotelRepository.findById(999L)).thenReturn(Optional.empty());
 
         // When/Then
         assertThatThrownBy(() -> hotelService.deleteHotel(999L))
                 .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+
+        verify(hotelRepository, times(1)).findById(999L);
+        verify(hotelRepository, never()).deleteById(anyLong());
+    }
+
+    @Test
+    void deleteHotel_ShouldThrowException_WhenHasActiveBookings() {
+        // Given
+        when(hotelRepository.findById(1L)).thenReturn(Optional.of(hotel));
+        when(bookingRepository.countByHotelIdAndStatus(eq(1L), eq(BookingStatus.CONFIRMED))).thenReturn(5L);
+
+        // When/Then
+        assertThatThrownBy(() -> hotelService.deleteHotel(1L))
+                .isInstanceOf(HotelHasActiveBookingsException.class)
+                .hasMessageContaining("Cannot delete hotel");
+
+        verify(hotelRepository, never()).deleteById(anyLong());
     }
 
     @Test
@@ -244,10 +266,12 @@ class HotelServiceImplTest {
     }
 
     @Test
-    void addHotelReview_ShouldSucceed_WhenValidRequest() {
+    void addHotelReview_ShouldSucceed_WhenValidRequestAndVerifiedBooking() {
         // Given
         when(hotelRepository.findById(1L)).thenReturn(Optional.of(hotel));
         when(reviewRepository.existsByHotelIdAndUserId(1L, 100L)).thenReturn(false);
+        when(bookingRepository.existsByHotelIdAndUserIdAndStatus(1L, 100L, BookingStatus.CONFIRMED))
+                .thenReturn(true);  // CRITICAL: User has verified booking
         when(reviewRepository.save(any(HotelReview.class))).thenReturn(hotelReview);
         when(reviewRepository.getAverageRatingForHotel(1L)).thenReturn(4.8);
         when(reviewRepository.getReviewCountForHotel(1L)).thenReturn(11);
@@ -262,6 +286,20 @@ class HotelServiceImplTest {
         assertThat(result.getTitle()).isEqualTo("Great hotel!");
         verify(reviewRepository, times(1)).save(any(HotelReview.class));
         verify(hotelRepository, times(1)).save(any(Hotel.class));
+    }
+
+    @Test
+    void addHotelReview_ShouldThrowException_WhenNoVerifiedBooking() {
+        // Given
+        when(hotelRepository.findById(1L)).thenReturn(Optional.of(hotel));
+        when(reviewRepository.existsByHotelIdAndUserId(1L, 100L)).thenReturn(false);
+        when(bookingRepository.existsByHotelIdAndUserIdAndStatus(1L, 100L, BookingStatus.CONFIRMED))
+                .thenReturn(false);  // No verified booking
+
+        // When/Then
+        assertThatThrownBy(() -> hotelService.addHotelReview(1L, 100L, reviewRequest))
+                .isInstanceOf(ReviewNotAllowedException.class)
+                .hasMessageContaining("You can only review hotels you have actually stayed at");
     }
 
     @Test
