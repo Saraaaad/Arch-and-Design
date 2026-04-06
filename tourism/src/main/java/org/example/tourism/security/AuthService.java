@@ -1,5 +1,7 @@
 package org.example.tourism.security;
 
+import org.example.tourism.common.DuplicateResourceException;
+import org.example.tourism.common.InvalidTokenException;
 import org.example.tourism.common.Role;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -70,15 +72,15 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request){
         // Check if username already exists
         if (userRepository.existsByUsername(request.username())) {
-            throw new RuntimeException("Username already exists");
+            throw new DuplicateResourceException("Username already exists");
         }
 
         // Check if email already exists
         if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email already exists");
+            throw new DuplicateResourceException("Email already exists");
         }
 
         // For regular registration, force GUEST role unless it's the first user
@@ -122,15 +124,15 @@ public class AuthService {
     @Transactional
     public AuthResponse refreshToken(String refreshTokenValue) {
         RefreshToken refreshToken = refreshTokenRepository.findByToken(refreshTokenValue)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+                .orElseThrow(() -> new InvalidTokenException("Invalid refresh token"));
 
         if (refreshToken.isRevoked()) {
-            throw new RuntimeException("Refresh token has been revoked");
+            throw new InvalidTokenException("Refresh token has been revoked");
         }
 
         if (refreshToken.isExpired()) {
             refreshTokenRepository.delete(refreshToken);
-            throw new RuntimeException("Refresh token has expired");
+            throw new InvalidTokenException("Refresh token has expired");
         }
 
         User user = refreshToken.getUser();

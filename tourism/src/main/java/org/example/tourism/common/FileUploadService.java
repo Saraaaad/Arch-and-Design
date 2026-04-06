@@ -36,6 +36,9 @@ public class FileUploadService {
         List<String> fileUrls = new ArrayList<>();
 
         for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                throw new EmptyFileException("Cannot upload empty file");
+            }
             String fileUrl = uploadSingleFile(file, subFolder);
             if (fileUrl != null) {
                 fileUrls.add(fileUrl);
@@ -53,6 +56,9 @@ public class FileUploadService {
                 uploadPath = Paths.get(uploadDir, subFolder);
             } else {
                 uploadPath = Paths.get(uploadDir);
+            }
+            if (file.isEmpty()) {
+                throw new EmptyFileException("Cannot upload empty file");
             }
 
             Path absolutePath = uploadPath.toAbsolutePath().normalize();

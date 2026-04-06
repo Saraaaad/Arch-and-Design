@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.tourism.catalog.hotel.Hotel;
 import org.example.tourism.catalog.hotel.HotelRepository;
 import org.example.tourism.catalog.hotel.dto.HotelSearchResponseDto;
+import org.example.tourism.common.CannotWishlistOwnHotelException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,10 @@ public class WishlistService {
         // Check if already in wishlist
         if (wishlistRepository.existsByUserIdAndHotelId(userId, hotelId)) {
             throw new IllegalStateException("Hotel already in wishlist");
+        }
+        Hotel hotel2 = hotelRepository.findById(hotelId).orElseThrow();
+        if (hotel2.getManagerId().equals(userId)) {
+            throw new CannotWishlistOwnHotelException("You cannot add your own hotel to wishlist");
         }
 
         Wishlist wishlist = new Wishlist();
