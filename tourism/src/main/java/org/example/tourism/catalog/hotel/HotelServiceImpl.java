@@ -14,6 +14,9 @@ import org.example.tourism.catalog.shared.CityInfoDto;
 import org.example.tourism.catalog.shared.PriceBreakdownDto;
 import org.example.tourism.catalog.shared.ReviewRequestDto;
 import org.example.tourism.catalog.shared.ReviewResponseDto;
+import org.example.tourism.common.DateTooFarException;
+import org.example.tourism.common.HotelHasActiveBookingsException;
+import org.example.tourism.common.ReviewNotAllowedException;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
 import org.example.tourism.wishlist.WishlistService;
@@ -79,15 +82,14 @@ public class HotelServiceImpl implements HotelService {
         return mapToResponseDto(savedHotel);
     }
 
-    @Transactional
     @Override
+    @Transactional(readOnly = true)
     public HotelDetailResponseDto getHotelDetail(Long id) {
-        Hotel hotel = hotelRepository.findById(id)
+        // Use JOIN FETCH to avoid N+1 queries
+        Hotel hotel = hotelRepository.findByIdWithRoomTypes(id)
                 .orElseThrow(() -> new EntityNotFoundException("Hotel not found"));
 
-        int calculatedTotalRooms = hotel.calculateTotalRooms();
-        hotel.setTotalRooms(calculatedTotalRooms);
-
+        // No need to call calculateTotalRooms() separately - already loaded
         return mapToDetailDto(hotel);
     }
 
@@ -161,6 +163,10 @@ public class HotelServiceImpl implements HotelService {
 
         if (checkIn.isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("Check-in date cannot be in the past");
+        }
+
+        if (checkIn.isAfter(LocalDate.now().plusYears(1))) {
+            throw new DateTooFarException("Bookings can only be made up to 1 year in advance");
         }
 
         Hotel hotel = hotelRepository.findById(hotelId)
@@ -337,10 +343,30 @@ public class HotelServiceImpl implements HotelService {
     @Override
     @Transactional
     public void deleteHotel(Long id) {
-        if (!hotelRepository.existsById(id)) {
-            throw new EntityNotFoundException("Hotel not found with id: " + id);
+        log.info("Deleting hotel with ID: {}", id);
+
+        Hotel hotel = hotelRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Hotel not found with id: " + id));
+
+        // Check for active bookings
+        long activeBookings = bookingRepository.countByHotelIdAndStatus(id, BookingStatus.CONFIRMED);
+
+        if (activeBookings > 0) {
+            throw new HotelHasActiveBookingsException(
+                    String.format("Cannot delete hotel with %d active bookings. Please cancel all future bookings first.", activeBookings)
+            );
         }
+
+        // Also check for pending bookings
+        long pendingBookings = bookingRepository.countByHotelIdAndStatus(id, BookingStatus.PENDING);
+        if (pendingBookings > 0) {
+            throw new HotelHasActiveBookingsException(
+                    String.format("Cannot delete hotel with %d pending bookings.", pendingBookings)
+            );
+        }
+
         hotelRepository.deleteById(id);
+        log.info("Hotel {} deleted successfully", id);
     }
 
     private HotelResponseDto mapToResponseDto(Hotel hotel) {
@@ -443,6 +469,12 @@ public class HotelServiceImpl implements HotelService {
 
         if (reviewRepository.existsByHotelIdAndUserId(hotelId, userId)) {
             throw new IllegalStateException("User has already reviewed this hotel");
+        }
+
+        boolean hasVerifiedBooking = bookingRepository.existsByHotelIdAndUserIdAndStatus(
+                hotelId, userId, BookingStatus.CONFIRMED);
+        if (!hasVerifiedBooking) {
+            throw new ReviewNotAllowedException("You can only review hotels you have actually stayed at");
         }
 
         HotelReview review = new HotelReview();
