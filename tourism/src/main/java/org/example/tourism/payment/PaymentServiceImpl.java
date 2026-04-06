@@ -3,6 +3,8 @@ package org.example.tourism.payment;
 import org.example.tourism.booking.BookingResponseDto;
 import org.example.tourism.booking.BookingService;
 import org.example.tourism.booking.BookingStatus;
+import org.example.tourism.common.PaymentAlreadyRefundedException;
+import org.example.tourism.common.PaymentFailedException;
 import org.example.tourism.notification.NotificationService;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
@@ -57,11 +59,16 @@ public class PaymentServiceImpl implements PaymentService {
                 // Return existing payment instead of creating a new one
                 return mapToDto(existing);
             }
+
         }
 
         // Process payment
         boolean success = processMockPayment(booking);
         String transactionId = UUID.randomUUID().toString();
+
+        if (!success) {
+            throw new PaymentFailedException("Payment processing failed. Please try again");
+        }
 
         // Create payment record
         Payment payment = new Payment();
@@ -138,6 +145,10 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found with id: " + paymentId));
 
+        if (payment.getCreatedAt() == null) {
+            throw new IllegalStateException("Payment creation date is missing");
+        }
+
         // Check if payment can be refunded
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
             throw new IllegalStateException("Only completed payments can be refunded. Current status: " + payment.getStatus());
@@ -145,8 +156,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Check if already refunded
         if (payment.getStatus() == PaymentStatus.REFUNDED) {
-            throw new IllegalStateException("Payment has already been refunded");
+            throw new PaymentAlreadyRefundedException("Payment has already been refunded");
         }
+
 
         // Check if refund is within time limit (e.g., 7 days after payment)
         if (payment.getCreatedAt() != null) {

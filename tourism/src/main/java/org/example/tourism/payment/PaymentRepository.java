@@ -16,12 +16,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT p FROM Payment p WHERE p.bookingId IN (SELECT b.id FROM Booking b WHERE b.userId = :userId)")
     List<Payment> findPaymentsByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'COMPLETED'")
-    Double getTotalRevenue();
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'COMPLETED' AND p.createdAt BETWEEN :startDate AND :endDate")
-    Double getRevenueBetweenDates(@Param("startDate") LocalDateTime startDate,
-                                  @Param("endDate") LocalDateTime endDate);
-
-    List<Payment> findByStatusAndCreatedAtBefore(PaymentStatus status, LocalDateTime date);
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status")
+    Long sumAmountByStatus(@Param("status") PaymentStatus status);
 }
