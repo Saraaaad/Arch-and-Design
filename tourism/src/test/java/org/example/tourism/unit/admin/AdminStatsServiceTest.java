@@ -46,11 +46,10 @@ class AdminStatsServiceTest {
 
     @Test
     void getTotalStats_ShouldCalculateCorrectly_WhenDataExists() {
-        // Given - Mock the COUNT methods that your service now uses
+        // Given
         when(userRepository.count()).thenReturn(10L);
         when(hotelRepository.count()).thenReturn(5L);
 
-        // IMPORTANT: Mock the new repository methods your service is calling
         when(bookingRepository.countByStatus(BookingStatus.CONFIRMED)).thenReturn(2L);
         when(bookingRepository.countByStatus(BookingStatus.PENDING)).thenReturn(1L);
         when(bookingRepository.countByStatus(BookingStatus.CANCELLED)).thenReturn(1L);

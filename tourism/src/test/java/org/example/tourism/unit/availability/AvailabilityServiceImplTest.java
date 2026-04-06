@@ -136,7 +136,7 @@ class AvailabilityServiceImplTest {
 
         when(roomTypeRepository.findById(1L)).thenReturn(Optional.of(roomType));
 
-        // When/Then - Pass hotelId=1L but roomType belongs to hotelId=2L
+        // When/Then
         assertThatThrownBy(() -> availabilityService.checkAvailability(1L, 1L, checkIn, checkOut, 2))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("RoomType does not belong to the specified Hotel");
@@ -155,7 +155,7 @@ class AvailabilityServiceImplTest {
         when(pricingService.calculateTotalPrice(any(BigDecimal.class), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(new BigDecimal("300.00"));
 
-        // When - Pass hotelId=1L which matches roomType's hotel
+        // When
         AvailabilityResponseDto result = availabilityService.checkAvailability(1L, 1L, checkIn, checkOut, 2);
 
         // Then
@@ -167,7 +167,7 @@ class AvailabilityServiceImplTest {
         // Given
         when(roomTypeRepository.findById(1L)).thenReturn(Optional.of(roomType));
 
-        // When/Then - Request 5 guests but room capacity is 2
+        // When/Then
         assertThatThrownBy(() -> availabilityService.checkAvailability(1L, 1L, checkIn, checkOut, 5))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Room capacity insufficient");
@@ -175,8 +175,7 @@ class AvailabilityServiceImplTest {
 
     @Test
     void checkAvailability_ShouldHandleNullGuests_WithDefaultValue() {
-        // Note: Your method requires guests parameter, so this test may not be needed
-        // Keeping for completeness but you may want to remove
+
     }
 
     @Test

@@ -3,6 +3,7 @@ package org.example.tourism.unit.booking;
 import org.example.tourism.availability.AvailabilityResponseDto;
 import org.example.tourism.availability.AvailabilityService;
 import org.example.tourism.booking.*;
+import org.example.tourism.common.BookingNotAvailableException;
 import org.example.tourism.notification.NotificationService;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
@@ -108,8 +109,8 @@ class BookingServiceImplTest {
 
         // When/Then
         assertThatThrownBy(() -> bookingService.createBooking(bookingRequest))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Room is not available");
+                .isInstanceOf(BookingNotAvailableException.class)
+                .hasMessageContaining("Room is not available for the selected dates");
 
         verify(bookingRepository, never()).save(any(Booking.class));
     }
@@ -124,8 +125,8 @@ class BookingServiceImplTest {
 
         // When/Then
         assertThatThrownBy(() -> bookingService.createBooking(bookingRequest))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Room is already booked");
+                .isInstanceOf(BookingNotAvailableException.class)
+                .hasMessageContaining("Room is already booked for these dates");
 
         verify(bookingRepository, never()).save(any(Booking.class));
     }
@@ -194,6 +195,20 @@ class BookingServiceImplTest {
     }
 
     @Test
+    void cancelBooking_ShouldReturnExistingBooking_WhenAlreadyCancelled() {
+        // Given
+        testBooking.setStatus(BookingStatus.CANCELLED);
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+
+        // When
+        BookingResponseDto result = bookingService.cancelBooking(1L);
+
+        // Then
+        assertThat(result.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
     void getBooking_ShouldReturnBooking_WhenExists() {
         // Given
         when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
@@ -207,6 +222,16 @@ class BookingServiceImplTest {
     }
 
     @Test
+    void getBooking_ShouldThrowException_WhenNotFound() {
+        // Given
+        when(bookingRepository.findById(999L)).thenReturn(Optional.empty());
+
+        // When/Then
+        assertThatThrownBy(() -> bookingService.getBooking(999L))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+    }
+
+    @Test
     void getUserBookings_ShouldReturnList_WhenUserHasBookings() {
         // Given
         when(bookingRepository.findByUserId(100L)).thenReturn(List.of(testBooking));
@@ -217,5 +242,30 @@ class BookingServiceImplTest {
         // Then
         assertThat(results).hasSize(1);
         assertThat(results.get(0).getUserId()).isEqualTo(100L);
+    }
+
+    @Test
+    void getUserBookings_ShouldReturnEmptyList_WhenUserHasNoBookings() {
+        // Given
+        when(bookingRepository.findByUserId(100L)).thenReturn(List.of());
+
+        // When
+        List<BookingResponseDto> results = bookingService.getUserBookings(100L);
+
+        // Then
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    void getHotelBookings_ShouldReturnList_WhenHotelHasBookings() {
+        // Given
+        when(bookingRepository.findByHotelId(1L)).thenReturn(List.of(testBooking));
+
+        // When
+        List<BookingResponseDto> results = bookingService.getHotelBookings(1L);
+
+        // Then
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getHotelId()).isEqualTo(1L);
     }
 }
