@@ -15,13 +15,15 @@ public class AuthorizationService {
         this.bookingService = bookingService;
     }
 
-    public boolean isSelf(Long userId, Authentication authentication) {
-        if (authentication == null || userId == null) return false;
-
+    private Long getUserIdFromAuth(Authentication authentication) {
+        if (authentication == null) return null;
         Object principal = authentication.getPrincipal();
-        if (!(principal instanceof Jwt jwt)) return false;
+        if (!(principal instanceof Jwt jwt)) return null;
+        return jwt.getClaim("userId");
+    }
 
-        Long authenticatedUserId = jwt.getClaim("userId");
+    public boolean isSelf(Long userId, Authentication authentication) {
+        Long authenticatedUserId = getUserIdFromAuth(authentication);
         return authenticatedUserId != null && authenticatedUserId.equals(userId);
     }
 
@@ -32,13 +34,10 @@ public class AuthorizationService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         if (isAdmin) return true;
-
         return isSelf(userId, authentication);
     }
 
     public boolean isBookingOwner(Long bookingId, Authentication authentication) {
-        if (authentication == null || bookingId == null) return false;
-
         try {
             BookingResponseDto booking = bookingService.getBooking(bookingId);
             return isSelf(booking.getUserId(), authentication);
@@ -54,14 +53,6 @@ public class AuthorizationService {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         if (isAdmin) return true;
-
         return isBookingOwner(bookingId, authentication);
-    }
-
-    public boolean isHotelManager(Authentication authentication) {
-        if (authentication == null) return false;
-
-        return authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_HOTEL_MANAGER"));
     }
 }
