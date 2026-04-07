@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
 import java.util.Set;
 
 @Configuration
@@ -17,6 +18,7 @@ public class LoadDatabase {
     @Profile("!test")
     public CommandLineRunner initData(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
+            // Check if users already exist before inserting
             if (userRepository.count() == 0) {
                 User admin = new User(
                         "admin",
@@ -52,6 +54,8 @@ public class LoadDatabase {
                 System.out.println("Admin: admin/admin123");
                 System.out.println("Manager: manager/manager123");
                 System.out.println("Guest: guest/guest123");
+            } else {
+                System.out.println("Users already exist. Skipping initialization.");
             }
         };
     }

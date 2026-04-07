@@ -18,7 +18,6 @@ public class AvailabilityController {
     private final AvailabilityService availabilityService;
 
     @GetMapping("/check")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER', 'GUEST')")
     @Operation(summary = "Check availability and price for a room type",
             description = "Any authenticated user can check availability")
     public AvailabilityResponseDto checkAvailability(

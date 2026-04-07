@@ -56,7 +56,7 @@ public class PaymentController {
     }
 
     @GetMapping("/booking/{bookingId}")
-    @PreAuthorize("@authz.isSelfOrAdmin(#bookingId, authentication)")
+    @PreAuthorize("@authz.isBookingOwnerOrAdmin(#bookingId, authentication)")
     @Operation(summary = "Get payment details for a booking",
             description = "Booking owner or Admin only")
     @ApiResponses(value = {
