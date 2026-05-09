@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -33,6 +32,11 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
+    // DESIGN PATTERN: SINGLETON
+    // Security configuration must be a Singleton to ensure consistent security rules
+    // across the entire application. Having multiple security configurations would
+    // create undefined behavior and potential security vulnerabilities.
+    // The JwtDecoder and JwtEncoder are also Singletons for consistent token handling.
 
     @Value("${security.jwt.secret-key}")
     private String jwtSecretKey;
@@ -40,48 +44,33 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ADD THIS LINE - Enable CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // PUBLIC ENDPOINTS
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/api-docs/**").permitAll()
                         .requestMatchers("/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/images/**").permitAll()
-
-                        // PUBLIC GET ENDPOINTS
                         .requestMatchers(HttpMethod.GET, "/api/hotels/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/room-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/availability/**").permitAll()
-
                         .requestMatchers(HttpMethod.GET, "/api/wishlist/count/**").permitAll()
                         .requestMatchers("/api/wishlist/**").authenticated()
                         .requestMatchers("/api/history/**").authenticated()
                         .requestMatchers("/api/profile/**").authenticated()
                         .requestMatchers("/api/admin/stats/**").hasRole("ADMIN")
-
-                        // PROTECTED POST/PUT/DELETE
                         .requestMatchers(HttpMethod.POST, "/api/hotels/**").hasAnyRole("ADMIN", "HOTEL_MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/hotels/**").hasAnyRole("ADMIN", "HOTEL_MANAGER")
                         .requestMatchers(HttpMethod.POST, "/api/room-types/**").hasAnyRole("ADMIN", "HOTEL_MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/room-types/**").hasAnyRole("ADMIN", "HOTEL_MANAGER")
-
-                        // DELETE - Only Admin can delete
                         .requestMatchers(HttpMethod.DELETE, "/api/hotels/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/room-types/**").hasRole("ADMIN")
-
-                        // User management - Admin only
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
-
-                        // Bookings and Payments - Any authenticated user
                         .requestMatchers("/api/bookings/**").authenticated()
                         .requestMatchers("/api/payments/**").authenticated()
-
-                        // Any other request needs authentication
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -91,7 +80,6 @@ public class SecurityConfig {
                 .build();
     }
 
-    //CORS Configuration
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

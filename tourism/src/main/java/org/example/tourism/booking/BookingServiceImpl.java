@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.tourism.common.BookingAlreadyCancelledException;
 import org.example.tourism.common.BookingNotAvailableException;
 import org.example.tourism.common.CancellationNotAllowedException;
+import org.example.tourism.mapper.DtoMapperFactory;
 import org.example.tourism.notification.NotificationService;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
@@ -29,6 +30,11 @@ public class BookingServiceImpl implements BookingService {
     private final AvailabilityService availabilityService;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+
+    // DESIGN PATTERN: FACTORY METHOD
+    // Using DtoMapperFactory instead of private mapping methods
+    // This eliminates code duplication and centralizes mapping logic
+    private final DtoMapperFactory dtoMapperFactory;
 
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -73,7 +79,8 @@ public class BookingServiceImpl implements BookingService {
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking created with ID: {}", savedBooking.getId());
 
-        return mapToDto(savedBooking);
+        // Using Factory Method instead of private mapToDto method
+        return dtoMapperFactory.createBookingResponseDto(savedBooking);
     }
 
     @Override
@@ -90,14 +97,14 @@ public class BookingServiceImpl implements BookingService {
 
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
             log.warn("Booking {} is already confirmed", bookingId);
-            return mapToDto(booking);
+            return dtoMapperFactory.createBookingResponseDto(booking);
         }
 
         booking.setStatus(BookingStatus.CONFIRMED);
         Booking savedBooking = bookingRepository.save(booking);
 
         log.info("Booking {} confirmed successfully", bookingId);
-        return mapToDto(savedBooking);
+        return dtoMapperFactory.createBookingResponseDto(savedBooking);
     }
 
     @Override
@@ -110,14 +117,12 @@ public class BookingServiceImpl implements BookingService {
 
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             log.warn("Booking {} is already cancelled", bookingId);
-            return mapToDto(booking);
+            return dtoMapperFactory.createBookingResponseDto(booking);
         }
+
         LocalDate today = LocalDate.now();
         if (booking.getCheckInDate().minusDays(1).isBefore(today)) {
             throw new CancellationNotAllowedException("Cancellation not allowed within 24 hours of check-in");
-        }
-        if (booking.getStatus() == BookingStatus.CANCELLED) {
-            throw new BookingAlreadyCancelledException("Booking is already cancelled");
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -138,7 +143,7 @@ public class BookingServiceImpl implements BookingService {
             log.error("Failed to send cancellation notification for booking {}: {}", bookingId, e.getMessage());
         }
 
-        return mapToDto(savedBooking);
+        return dtoMapperFactory.createBookingResponseDto(savedBooking);
     }
 
     @Override
@@ -146,14 +151,14 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponseDto getBooking(Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + bookingId));
-        return mapToDto(booking);
+        return dtoMapperFactory.createBookingResponseDto(booking);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getUserBookings(Long userId) {
         return bookingRepository.findByUserId(userId).stream()
-                .map(this::mapToDto)
+                .map(dtoMapperFactory::createBookingResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -162,13 +167,7 @@ public class BookingServiceImpl implements BookingService {
     public List<BookingResponseDto> getHotelBookings(Long hotelId) {
         log.info("Fetching all bookings for hotel ID: {}", hotelId);
         return bookingRepository.findByHotelId(hotelId).stream()
-                .map(this::mapToDto)
+                .map(dtoMapperFactory::createBookingResponseDto)
                 .collect(Collectors.toList());
-    }
-
-    private BookingResponseDto mapToDto(Booking booking) {
-        BookingResponseDto dto = new BookingResponseDto();
-        BeanUtils.copyProperties(booking, dto);
-        return dto;
     }
 }

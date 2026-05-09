@@ -10,6 +10,12 @@ import java.nio.file.Paths;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    // DESIGN PATTERN: SINGLETON
+    // Spring's @Configuration ensures this class is instantiated only once
+    // The WebConfig is a perfect candidate for Singleton as we need exactly one
+    // resource handler configuration throughout the application lifecycle.
+    // This prevents multiple resource handler registrations which could cause conflicts.
+
     @Value("${app.upload.dir}")
     private String uploadDir;
 

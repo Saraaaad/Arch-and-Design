@@ -5,13 +5,14 @@ import org.example.tourism.booking.BookingService;
 import org.example.tourism.booking.BookingStatus;
 import org.example.tourism.common.PaymentAlreadyRefundedException;
 import org.example.tourism.common.PaymentFailedException;
-import org.example.tourism.notification.NotificationService;
+import org.example.tourism.mapper.DtoMapperFactory;
+import org.example.tourism.notification.NotificationEvent;
+import org.example.tourism.notification.NotificationEventPublisher;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +28,13 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final BookingService bookingService;
-    private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final DtoMapperFactory dtoMapperFactory;
+
+    // DESIGN PATTERN: OBSERVER
+    // Instead of directly calling NotificationService, we publish events
+    // All registered observers (email, logging, etc.) will be notified
+    private final NotificationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -37,17 +43,14 @@ public class PaymentServiceImpl implements PaymentService {
 
         BookingResponseDto booking = bookingService.getBooking(paymentRequestDto.getBookingId());
 
-        // Check if booking is already cancelled
         if (booking.getStatus() == BookingStatus.CANCELLED) {
             throw new IllegalStateException("Cannot pay for cancelled booking");
         }
 
-        // Check if booking is already confirmed (already paid)
         if (booking.getStatus() == BookingStatus.CONFIRMED) {
             throw new IllegalStateException("Booking is already confirmed and paid");
         }
 
-        // Check if payment already exists
         var existingPayment = paymentRepository.findByBookingId(booking.getId());
         if (existingPayment.isPresent()) {
             Payment existing = existingPayment.get();
@@ -56,13 +59,10 @@ public class PaymentServiceImpl implements PaymentService {
             }
             if (existing.getStatus() == PaymentStatus.PENDING) {
                 log.info("Found existing pending payment for booking ID: {}", booking.getId());
-                // Return existing payment instead of creating a new one
-                return mapToDto(existing);
+                return dtoMapperFactory.createPaymentResponseDto(existing);
             }
-
         }
 
-        // Process payment
         boolean success = processMockPayment(booking);
         String transactionId = UUID.randomUUID().toString();
 
@@ -70,7 +70,6 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentFailedException("Payment processing failed. Please try again");
         }
 
-        // Create payment record
         Payment payment = new Payment();
         payment.setBookingId(booking.getId());
         payment.setUserId(booking.getUserId());
@@ -85,11 +84,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (success) {
             log.info("Payment successful for booking ID: {}, transaction ID: {}", booking.getId(), transactionId);
 
-            // Confirm the booking
             BookingResponseDto confirmedBooking = bookingService.confirmBooking(booking.getId());
             log.info("Booking {} confirmed successfully", confirmedBooking.getId());
 
-            // Send notification
+            // DESIGN PATTERN: OBSERVER - Publish event instead of direct notification
             try {
                 User user = userRepository.findById(booking.getUserId())
                         .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + booking.getUserId()));
@@ -103,38 +101,42 @@ public class PaymentServiceImpl implements PaymentService {
                         transactionId
                 );
 
-                notificationService.sendBookingConfirmation(user.getEmail(), booking.getId(), details);
-                log.info("Notification sent to user: {}", user.getEmail());
+                // Publish event - all observers will be notified
+                NotificationEvent event = new NotificationEvent(
+                        NotificationEvent.EventType.BOOKING_CONFIRMED,
+                        user.getId(),
+                        user.getEmail(),
+                        booking.getId(),
+                        details
+                );
+                eventPublisher.publishEvent(event);
+
             } catch (Exception e) {
-                log.error("Failed to send notification for booking {}: {}", booking.getId(), e.getMessage());
+                log.error("Failed to publish notification event for booking {}: {}", booking.getId(), e.getMessage());
             }
         } else {
             log.error("Payment failed for booking ID: {}", booking.getId());
         }
 
-        return mapToDto(savedPayment);
+        return dtoMapperFactory.createPaymentResponseDto(savedPayment);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PaymentResponseDto getPaymentByBooking(Long bookingId) {
         log.info("Fetching payment for booking ID: {}", bookingId);
-
         Payment payment = paymentRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found for booking: " + bookingId));
-
-        return mapToDto(payment);
+        return dtoMapperFactory.createPaymentResponseDto(payment);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PaymentResponseDto getPaymentById(Long paymentId) {
         log.info("Fetching payment with ID: {}", paymentId);
-
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found with id: " + paymentId));
-
-        return mapToDto(payment);
+        return dtoMapperFactory.createPaymentResponseDto(payment);
     }
 
     @Override
@@ -145,22 +147,10 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found with id: " + paymentId));
 
-        if (payment.getCreatedAt() == null) {
-            throw new IllegalStateException("Payment creation date is missing");
-        }
-
-        // Check if payment can be refunded
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
             throw new IllegalStateException("Only completed payments can be refunded. Current status: " + payment.getStatus());
         }
 
-        // Check if already refunded
-        if (payment.getStatus() == PaymentStatus.REFUNDED) {
-            throw new PaymentAlreadyRefundedException("Payment has already been refunded");
-        }
-
-
-        // Check if refund is within time limit (e.g., 7 days after payment)
         if (payment.getCreatedAt() != null) {
             LocalDateTime refundDeadline = payment.getCreatedAt().plusDays(7);
             if (LocalDateTime.now().isAfter(refundDeadline)) {
@@ -168,7 +158,6 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        // Process refund
         boolean refundSuccess = processMockRefund(payment);
 
         if (refundSuccess) {
@@ -178,7 +167,6 @@ public class PaymentServiceImpl implements PaymentService {
 
             log.info("Refund successful for payment ID: {}, booking ID: {}", paymentId, payment.getBookingId());
 
-            // Cancel the booking when refund is processed
             try {
                 bookingService.cancelBooking(payment.getBookingId());
                 log.info("Booking {} cancelled due to refund", payment.getBookingId());
@@ -186,40 +174,43 @@ public class PaymentServiceImpl implements PaymentService {
                 log.error("Failed to cancel booking after refund: {}", e.getMessage());
             }
 
-            // Send refund notification
+            // DESIGN PATTERN: OBSERVER - Publish refund event
             try {
                 BookingResponseDto booking = bookingService.getBooking(payment.getBookingId());
                 User user = userRepository.findById(booking.getUserId())
                         .orElseThrow(() -> new EntityNotFoundException("User not found"));
 
-                notificationService.sendNotification(
+                String refundMessage = String.format("Your refund of $%.2f for booking #%d has been processed. Transaction: %s",
+                        payment.getAmount(), booking.getId(), payment.getTransactionId());
+
+                NotificationEvent event = new NotificationEvent(
+                        NotificationEvent.EventType.PAYMENT_REFUNDED,
+                        user.getId(),
                         user.getEmail(),
-                        "Refund Processed for Booking #" + booking.getId(),
-                        String.format("Your refund of $%.2f for booking #%d has been processed. Transaction: %s",
-                                payment.getAmount(), booking.getId(), payment.getTransactionId())
+                        payment.getId(),
+                        refundMessage
                 );
-                log.info("Refund notification sent to user: {}", user.getEmail());
+                eventPublisher.publishEvent(event);
+
             } catch (Exception e) {
-                log.error("Failed to send refund notification: {}", e.getMessage());
+                log.error("Failed to publish refund notification event: {}", e.getMessage());
             }
         } else {
             log.error("Refund failed for payment ID: {}", paymentId);
             throw new IllegalStateException("Refund processing failed");
         }
 
-        return mapToDto(payment);
+        return dtoMapperFactory.createPaymentResponseDto(payment);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PaymentResponseDto> getUserPayments(Long userId) {
         log.info("Fetching all payments for user ID: {}", userId);
-
         List<Payment> payments = paymentRepository.findPaymentsByUserId(userId);
-
         log.info("Found {} payments for user ID: {}", payments.size(), userId);
         return payments.stream()
-                .map(this::mapToDto)
+                .map(dtoMapperFactory::createPaymentResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -253,22 +244,7 @@ public class PaymentServiceImpl implements PaymentService {
     public boolean isPaymentOwner(Long paymentId, Long userId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new EntityNotFoundException("Payment not found with id: " + paymentId));
-
         BookingResponseDto booking = bookingService.getBooking(payment.getBookingId());
         return booking.getUserId().equals(userId);
-    }
-
-    private PaymentResponseDto mapToDto(Payment payment) {
-        PaymentResponseDto dto = new PaymentResponseDto();
-        BeanUtils.copyProperties(payment, dto);
-
-        if (dto.getPaymentMethod() == null) {
-            dto.setPaymentMethod("CREDIT_CARD");
-        }
-        if (dto.getRefundedAmount() == null) {
-            dto.setRefundedAmount(java.math.BigDecimal.ZERO);
-        }
-
-        return dto;
     }
 }
