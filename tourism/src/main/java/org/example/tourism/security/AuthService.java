@@ -3,6 +3,9 @@ package org.example.tourism.security;
 import org.example.tourism.common.DuplicateResourceException;
 import org.example.tourism.common.InvalidTokenException;
 import org.example.tourism.common.Role;
+// DESIGN PATTERN: OBSERVER - Publishing registration events
+import org.example.tourism.notification.NotificationEvent;
+import org.example.tourism.notification.NotificationEventPublisher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,17 +26,23 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final long refreshTokenDays;
 
+    // DESIGN PATTERN: OBSERVER
+    // Using event publisher instead of direct notification calls
+    private final NotificationEventPublisher eventPublisher;
+
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenService tokenService,
             RefreshTokenRepository refreshTokenRepository,
+            NotificationEventPublisher eventPublisher,
             @Value("${security.jwt.refresh-token-days:7}") long refreshTokenDays
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.eventPublisher = eventPublisher;
         this.refreshTokenDays = refreshTokenDays;
     }
 
@@ -65,7 +74,7 @@ public class AuthService {
                     "Login successful"
             );
         } catch (BadCredentialsException e) {
-            throw e; // This will be caught by GlobalExceptionHandler
+            throw e;
         } catch (Exception e) {
             throw new BadCredentialsException("Invalid username or password");
         }
@@ -73,23 +82,19 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request){
-        // Check if username already exists
         if (userRepository.existsByUsername(request.username())) {
             throw new DuplicateResourceException("Username already exists");
         }
 
-        // Check if email already exists
         if (userRepository.existsByEmail(request.email())) {
             throw new DuplicateResourceException("Email already exists");
         }
 
-        // For regular registration, force GUEST role unless it's the first user
         Set<Role> roles = request.roles();
         if (roles == null || roles.isEmpty()) {
             roles = Set.of(Role.GUEST);
         }
 
-        // Create new user
         String passwordHash = passwordEncoder.encode(request.password());
         User user = new User(
                 request.username(),
@@ -102,7 +107,17 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // Generate tokens
+        // DESIGN PATTERN: OBSERVER
+        // Publish user registration event - EmailNotificationObserver will handle the email
+        NotificationEvent event = new NotificationEvent(
+                NotificationEvent.EventType.USER_REGISTERED,
+                savedUser.getId(),
+                savedUser.getEmail(),
+                savedUser.getId(),
+                "Welcome to Tourism Booking, " + savedUser.getFullName() + "!"
+        );
+        eventPublisher.publishEvent(event);
+
         List<String> roleNames = savedUser.getRoles().stream().map(Enum::name).toList();
         String accessToken = tokenService.generateAccessToken(savedUser.getUsername(), roleNames, savedUser.getId());
         String refreshToken = createRefreshToken(savedUser);
@@ -143,7 +158,6 @@ public class AuthService {
         List<String> roles = user.getRoles().stream().map(Enum::name).toList();
         String accessToken = tokenService.generateAccessToken(user.getUsername(), roles, user.getId());
 
-        // Rotate refresh token
         String newRefreshToken = rotateRefreshToken(refreshToken);
 
         return new AuthResponse(

@@ -7,6 +7,8 @@ import org.example.tourism.catalog.hotel.Hotel;
 import org.example.tourism.catalog.hotel.HotelRepository;
 import org.example.tourism.catalog.hotel.dto.HotelSearchResponseDto;
 import org.example.tourism.common.CannotWishlistOwnHotelException;
+// DESIGN PATTERN: FACTORY METHOD - Using DtoMapperFactory
+import org.example.tourism.mapper.DtoMapperFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +24,17 @@ public class WishlistService {
     private final WishlistRepository wishlistRepository;
     private final HotelRepository hotelRepository;
 
+    // DESIGN PATTERN: FACTORY METHOD
+    // Replacing private mapToSearchDto method with centralized factory
+    private final DtoMapperFactory dtoMapperFactory;
+
     @Transactional
     public void addToWishlist(Long userId, Long hotelId) {
         log.info("Adding hotel {} to wishlist for user {}", hotelId, userId);
 
-        // Check if hotel exists
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new EntityNotFoundException("Hotel not found with id: " + hotelId));
 
-        // Check if already in wishlist
         if (wishlistRepository.existsByUserIdAndHotelId(userId, hotelId)) {
             throw new IllegalStateException("Hotel already in wishlist");
         }
@@ -60,11 +64,12 @@ public class WishlistService {
 
         List<Wishlist> wishlist = wishlistRepository.findByUserId(userId);
 
+        // DESIGN PATTERN: FACTORY METHOD
         return wishlist.stream()
                 .map(w -> hotelRepository.findById(w.getHotelId()))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .map(this::mapToSearchDto)
+                .map(dtoMapperFactory::createHotelSearchDto)
                 .collect(Collectors.toList());
     }
 
@@ -82,18 +87,5 @@ public class WishlistService {
     @Transactional(readOnly = true)
     public Long getWishlistCount(Long hotelId) {
         return wishlistRepository.countByHotelId(hotelId);
-    }
-
-    private HotelSearchResponseDto mapToSearchDto(Hotel hotel) {
-        return HotelSearchResponseDto.builder()
-                .id(hotel.getId())
-                .name(hotel.getName())
-                .city(hotel.getCity())
-                .country(hotel.getCountry())
-                .starRating(hotel.getStarRating())
-                .mainImageUrl(hotel.getImageUrls().isEmpty() ? null : hotel.getImageUrls().get(0))
-                .averageRating(hotel.getAverageRating())
-                .reviewCount(hotel.getReviewCount())
-                .build();
     }
 }

@@ -21,9 +21,13 @@ public class BookingController {
     private final BookingService bookingService;
 
 
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER', 'GUEST')")
+    // DESIGN PATTERN: DECORATOR
+    // The validation chain (Decorator pattern) is applied inside the service layer
+    // This controller remains clean - all validation logic is delegated to the decorators
     public BookingResponseDto createBooking(
             @Valid @RequestBody CreateBookingRequest request,
             Authentication authentication) {
@@ -34,13 +38,14 @@ public class BookingController {
         BookingRequestDto bookingRequest = new BookingRequestDto();
         bookingRequest.setHotelId(request.getHotelId());
         bookingRequest.setRoomTypeId(request.getRoomTypeId());
-        bookingRequest.setUserId(userId);  // Set it here
+        bookingRequest.setUserId(userId);
         bookingRequest.setCheckInDate(request.getCheckInDate());
         bookingRequest.setCheckOutDate(request.getCheckOutDate());
         bookingRequest.setGuests(request.getGuests());
 
         return bookingService.createBooking(bookingRequest);
     }
+
 
     @GetMapping("/{id}")
     @PreAuthorize("@authz.isBookingOwnerOrAdmin(#id, authentication)")

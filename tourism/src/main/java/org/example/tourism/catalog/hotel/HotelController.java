@@ -285,12 +285,10 @@ public class HotelController {
             @PageableDefault(size = 10) Pageable pageable,
             Authentication authentication) {
 
-        // Save search to history (if authenticated)
         if (authentication != null && authentication.isAuthenticated()) {
             try {
                 Jwt jwt = (Jwt) authentication.getPrincipal();
                 Long userId = jwt.getClaim("userId");
-
                 searchHistoryService.saveSearch(
                         userId, city, checkIn, checkOut, guests, starRating, maxPrice
                 );
@@ -299,7 +297,8 @@ public class HotelController {
             }
         }
 
-        // Build search criteria
+        // DESIGN PATTERN: BUILDER
+        // Build search criteria using fluent Builder API
         HotelSearchCriteria criteria = HotelSearchCriteria.builder()
                 .name(name)
                 .city(city)
@@ -321,6 +320,9 @@ public class HotelController {
                 .dealTag(dealTag)
                 .sortBy(sortBy)
                 .build();
+
+        // DESIGN PATTERN: BUILDER - Validate criteria after building
+        criteria.validate();
 
         return hotelService.searchHotels(criteria, pageable);
     }

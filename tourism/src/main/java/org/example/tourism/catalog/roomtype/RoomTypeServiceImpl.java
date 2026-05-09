@@ -8,6 +8,8 @@ import org.example.tourism.catalog.hotel.Hotel;
 import org.example.tourism.catalog.hotel.HotelRepository;
 import org.example.tourism.catalog.roomtype.dto.RoomTypeRequestDto;
 import org.example.tourism.catalog.roomtype.dto.RoomTypeResponseDto;
+// DESIGN PATTERN: FACTORY METHOD - Using DtoMapperFactory
+import org.example.tourism.mapper.DtoMapperFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,10 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     private final HotelRepository hotelRepository;
     private final BookingRepository bookingRepository;
 
+    // DESIGN PATTERN: FACTORY METHOD
+    // Using centralized mapper instead of private mapToDto method
+    private final DtoMapperFactory dtoMapperFactory;
+
     @Override
     @Transactional
     public RoomTypeResponseDto createRoomType(RoomTypeRequestDto request) {
@@ -41,7 +47,8 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType savedRoomType = roomTypeRepository.save(roomType);
         log.info("Room type created with ID: {}", savedRoomType.getId());
 
-        return mapToDto(savedRoomType);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createRoomTypeResponseDto(savedRoomType);
     }
 
     @Override
@@ -52,7 +59,8 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType roomType = roomTypeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("RoomType not found with id: " + id));
 
-        return mapToDto(roomType);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createRoomTypeResponseDto(roomType);
     }
 
     @Override
@@ -60,8 +68,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     public List<RoomTypeResponseDto> getAllRoomTypes() {
         log.info("Fetching all room types");
 
+        // DESIGN PATTERN: FACTORY METHOD
         return roomTypeRepository.findAll().stream()
-                .map(this::mapToDto)
+                .map(dtoMapperFactory::createRoomTypeResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -74,8 +83,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
             throw new EntityNotFoundException("Hotel not found with id: " + hotelId);
         }
 
+        // DESIGN PATTERN: FACTORY METHOD
         return roomTypeRepository.findByHotelId(hotelId).stream()
-                .map(this::mapToDto)
+                .map(dtoMapperFactory::createRoomTypeResponseDto)
                 .collect(Collectors.toList());
     }
 
@@ -93,7 +103,6 @@ public class RoomTypeServiceImpl implements RoomTypeService {
             roomType.setHotel(newHotel);
         }
 
-
         roomType.setName(request.getName());
         roomType.setCapacity(request.getCapacity());
         roomType.setBasePrice(request.getBasePrice());
@@ -101,7 +110,8 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType updatedRoomType = roomTypeRepository.save(roomType);
         log.info("Room type updated successfully: {}", id);
 
-        return mapToDto(updatedRoomType);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createRoomTypeResponseDto(updatedRoomType);
     }
 
     @Override
@@ -137,6 +147,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
 
         return available;
     }
+
     @Override
     @Transactional
     public RoomTypeResponseDto addRoomTypeImages(Long roomTypeId, List<String> imageUrls) {
@@ -145,19 +156,18 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType roomType = roomTypeRepository.findById(roomTypeId)
                 .orElseThrow(() -> new EntityNotFoundException("RoomType not found with id: " + roomTypeId));
 
-        // Initialize imageUrls list if null
         if (roomType.getImageUrls() == null) {
             roomType.setImageUrls(new ArrayList<>());
         }
 
-        // Add new image URLs
         roomType.getImageUrls().addAll(imageUrls);
 
         RoomType updatedRoomType = roomTypeRepository.save(roomType);
         log.info("Added {} images to room type ID: {}. Total images: {}",
                 imageUrls.size(), roomTypeId, updatedRoomType.getImageUrls().size());
 
-        return mapToDto(updatedRoomType);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createRoomTypeResponseDto(updatedRoomType);
     }
 
     @Override
@@ -173,7 +183,6 @@ public class RoomTypeServiceImpl implements RoomTypeService {
             throw new IllegalArgumentException("Room type has no images");
         }
 
-        // Remove the URL from the list
         boolean removed = roomType.getImageUrls().remove(imageUrl);
 
         if (!removed) {
@@ -184,21 +193,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType updatedRoomType = roomTypeRepository.save(roomType);
         log.info("Image removed successfully. Remaining images: {}", updatedRoomType.getImageUrls().size());
 
-        return mapToDto(updatedRoomType);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createRoomTypeResponseDto(updatedRoomType);
     }
-
-    // Make sure your mapToDto method includes imageUrls
-    private RoomTypeResponseDto mapToDto(RoomType roomType) {
-        RoomTypeResponseDto dto = new RoomTypeResponseDto();
-        BeanUtils.copyProperties(roomType, dto);
-        dto.setHotelId(roomType.getHotel().getId());
-
-        // Ensure imageUrls is never null in the response
-        if (dto.getImageUrls() == null) {
-            dto.setImageUrls(new ArrayList<>());
-        }
-
-        return dto;
-    }
-
 }

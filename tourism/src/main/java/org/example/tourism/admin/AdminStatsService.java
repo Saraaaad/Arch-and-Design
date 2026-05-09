@@ -7,6 +7,8 @@ import org.example.tourism.booking.BookingRepository;
 import org.example.tourism.booking.BookingStatus;
 import org.example.tourism.catalog.hotel.Hotel;
 import org.example.tourism.catalog.hotel.HotelRepository;
+// DESIGN PATTERN: FACTORY METHOD - Using DtoMapperFactory for hotel DTOs
+import org.example.tourism.mapper.DtoMapperFactory;
 import org.example.tourism.payment.Payment;
 import org.example.tourism.payment.PaymentRepository;
 import org.example.tourism.payment.PaymentStatus;
@@ -34,6 +36,10 @@ public class AdminStatsService {
     private final HotelRepository hotelRepository;
     private final PaymentRepository paymentRepository;
 
+    // DESIGN PATTERN: FACTORY METHOD
+    // Using DtoMapperFactory for consistent DTO creation
+    private final DtoMapperFactory dtoMapperFactory;
+
     @Transactional(readOnly = true)
     public DashboardStatsDto getDashboardStats() {
         log.info("Fetching admin dashboard stats");
@@ -43,6 +49,8 @@ public class AdminStatsService {
         List<TopHotelDto> topHotels = getTopHotels();
         OccupancyStatsDto occupancyStats = getOccupancyStats();
 
+        // DESIGN PATTERN: BUILDER
+        // The Builder pattern is used here for constructing complex DashboardStatsDto
         return DashboardStatsDto.builder()
                 .totalStats(totalStats)
                 .monthlyStats(monthlyStats)
@@ -55,13 +63,13 @@ public class AdminStatsService {
         Long totalUsers = userRepository.count();
         Long totalHotels = hotelRepository.count();
 
-        // Use database queries instead of loading all data
         Long totalBookings = bookingRepository.countByStatus(BookingStatus.CONFIRMED);
         Long totalRevenue = paymentRepository.sumAmountByStatus(PaymentStatus.COMPLETED);
         Long pendingBookings = bookingRepository.countByStatus(BookingStatus.PENDING);
         Long confirmedBookings = bookingRepository.countByStatus(BookingStatus.CONFIRMED);
         Long cancelledBookings = bookingRepository.countByStatus(BookingStatus.CANCELLED);
 
+        // DESIGN PATTERN: BUILDER
         return TotalStatsDto.builder()
                 .totalUsers(totalUsers)
                 .totalHotels(totalHotels)
@@ -72,6 +80,7 @@ public class AdminStatsService {
                 .cancelledBookings(cancelledBookings)
                 .build();
     }
+
     private Map<String, MonthlyStatsDto> getMonthlyStats() {
         Map<String, MonthlyStatsDto> stats = new LinkedHashMap<>();
         LocalDateTime now = LocalDateTime.now();
@@ -93,6 +102,7 @@ public class AdminStatsService {
                     .map(Booking::getTotalPrice)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+            // DESIGN PATTERN: BUILDER
             stats.put(yearMonth.getMonth().toString() + " " + yearMonth.getYear(),
                     MonthlyStatsDto.builder()
                             .month(yearMonth.getMonth().toString() + " " + yearMonth.getYear())
@@ -125,6 +135,7 @@ public class AdminStatsService {
                 .map(entry -> {
                     Long hotelId = entry.getKey();
                     Hotel hotel = hotelRepository.findById(hotelId).orElse(null);
+                    // DESIGN PATTERN: BUILDER
                     return TopHotelDto.builder()
                             .hotelId(hotelId)
                             .hotelName(hotel != null ? hotel.getName() : "Unknown Hotel")
@@ -163,6 +174,7 @@ public class AdminStatsService {
                 .average()
                 .orElse(0.0);
 
+        // DESIGN PATTERN: BUILDER
         return OccupancyStatsDto.builder()
                 .overallOccupancyRate(Math.round(overallOccupancy * 10) / 10.0)
                 .hotelOccupancyRates(hotelOccupancyRates)

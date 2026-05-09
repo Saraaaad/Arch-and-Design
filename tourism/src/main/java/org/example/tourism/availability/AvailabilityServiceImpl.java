@@ -7,6 +7,8 @@ import org.example.tourism.catalog.roomtype.RoomTypeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+// DESIGN PATTERN: STRATEGY - Using PricingStrategyContext
+import org.example.tourism.pricing.PricingStrategyContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,8 +50,6 @@ public class AvailabilityServiceImpl implements AvailabilityService {
 
         boolean available = overlappingBookings.isEmpty();
 
-
-
         log.info("Availability result: {}, found {} overlapping bookings", available, overlappingBookings.size());
 
         AvailabilityResponseDto response = new AvailabilityResponseDto();
@@ -58,6 +58,10 @@ public class AvailabilityServiceImpl implements AvailabilityService {
         response.setCheckInDate(checkIn);
         response.setCheckOutDate(checkOut);
         response.setAvailable(available);
+
+        // DESIGN PATTERN: STRATEGY
+        // The pricing strategy is selected dynamically based on dates
+        // This allows flexible pricing without changing this service
         response.setTotalPrice(pricingService.calculateTotalPrice(roomType.getBasePrice(), checkIn, checkOut));
 
         return response;

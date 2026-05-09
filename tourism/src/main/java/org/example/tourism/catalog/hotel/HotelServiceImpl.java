@@ -17,6 +17,8 @@ import org.example.tourism.catalog.shared.ReviewResponseDto;
 import org.example.tourism.common.DateTooFarException;
 import org.example.tourism.common.HotelHasActiveBookingsException;
 import org.example.tourism.common.ReviewNotAllowedException;
+// DESIGN PATTERN: FACTORY METHOD - Using DtoMapperFactory instead of private mapping methods
+import org.example.tourism.mapper.DtoMapperFactory;
 import org.example.tourism.security.User;
 import org.example.tourism.security.UserRepository;
 import org.example.tourism.wishlist.WishlistService;
@@ -50,6 +52,11 @@ public class HotelServiceImpl implements HotelService {
     private final WishlistService wishlistService;
     private final UserRepository userRepository;
 
+    // DESIGN PATTERN: FACTORY METHOD
+    // Replacing private mapping methods with centralized DTO mapper factory
+    // This eliminates code duplication across services
+    private final DtoMapperFactory dtoMapperFactory;
+
     @Override
     @Transactional
     public HotelResponseDto createHotel(HotelRequestDto request, Long managerId) {
@@ -58,7 +65,6 @@ public class HotelServiceImpl implements HotelService {
         Hotel hotel = new Hotel();
         BeanUtils.copyProperties(request, hotel);
 
-        // Set the manager ID
         hotel.setManagerId(managerId);
 
         if (request.getAmenities() != null && !request.getAmenities().isEmpty()) {
@@ -73,7 +79,7 @@ public class HotelServiceImpl implements HotelService {
             hotel.setSpokenLanguages(new HashSet<>(request.getSpokenLanguages()));
         }
 
-
+        // Set defaults
         if (hotel.getCheckInTime() == null) hotel.setCheckInTime("15:00");
         if (hotel.getCheckOutTime() == null) hotel.setCheckOutTime("11:00");
         if (hotel.getTotalRooms() == null) hotel.setTotalRooms(100);
@@ -94,17 +100,24 @@ public class HotelServiceImpl implements HotelService {
         Hotel savedHotel = hotelRepository.save(hotel);
         log.info("Hotel created with ID: {} and managerId: {}", savedHotel.getId(), managerId);
 
-        return mapToResponseDto(savedHotel);
+        // DESIGN PATTERN: FACTORY METHOD - Using factory instead of private method
+        return dtoMapperFactory.createHotelResponseDto(savedHotel);
     }
 
     @Override
     @Transactional(readOnly = true)
     public HotelDetailResponseDto getHotelDetail(Long id) {
-
         Hotel hotel = hotelRepository.findByIdWithRoomTypes(id)
                 .orElseThrow(() -> new EntityNotFoundException("Hotel not found"));
 
-        return mapToDetailDto(hotel);
+        // DESIGN PATTERN: FACTORY METHOD - Using factory for DTO creation
+        List<RoomTypeSummaryDto> roomTypeSummaries = hotel.getRoomTypes().stream()
+                .map(dtoMapperFactory::createRoomTypeSummaryDto)
+                .collect(Collectors.toList());
+
+        Long wishlistCount = wishlistService.getWishlistCount(hotel.getId());
+
+        return dtoMapperFactory.createHotelDetailDto(hotel, roomTypeSummaries, wishlistCount);
     }
 
     @Override
@@ -112,9 +125,11 @@ public class HotelServiceImpl implements HotelService {
     public Page<HotelSearchResponseDto> searchHotels(HotelSearchCriteria criteria, Pageable pageable) {
         log.info("Searching hotels with enhanced criteria: {}", criteria);
 
+        // DESIGN PATTERN: BUILDER - Criteria validation
+        // The Builder pattern allows easy construction of search criteria
+        criteria.validate();
 
         Specification<Hotel> spec = HotelSpecificationBuilder.buildSpecification(criteria);
-
 
         if (StringUtils.hasText(criteria.getSortBy())) {
             pageable = applySorting(criteria.getSortBy(), pageable);
@@ -122,8 +137,9 @@ public class HotelServiceImpl implements HotelService {
 
         Page<Hotel> hotels = hotelRepository.findAll(spec, pageable);
 
+        // DESIGN PATTERN: FACTORY METHOD - Using factory for mapping
         List<HotelSearchResponseDto> dtos = hotels.getContent().stream()
-                .map(this::mapToSearchDto)
+                .map(dtoMapperFactory::createHotelSearchDto)
                 .collect(Collectors.toList());
 
         return new PageImpl<>(dtos, pageable, hotels.getTotalElements());
@@ -145,8 +161,9 @@ public class HotelServiceImpl implements HotelService {
     @Override
     @Transactional(readOnly = true)
     public List<HotelSearchResponseDto> getFeaturedHotels() {
+        // DESIGN PATTERN: FACTORY METHOD
         return hotelRepository.findByFeaturedTrue().stream()
-                .map(this::mapToSearchDto)
+                .map(dtoMapperFactory::createHotelSearchDto)
                 .limit(6)
                 .collect(Collectors.toList());
     }
@@ -169,7 +186,6 @@ public class HotelServiceImpl implements HotelService {
     public HotelAvailabilityDto checkHotelAvailability(Long hotelId, LocalDate checkIn, LocalDate checkOut, Integer guests) {
         log.info("Checking availability for hotel {} from {} to {} for {} guests",
                 hotelId, checkIn, checkOut, guests);
-
 
         if (checkIn.isAfter(checkOut) || checkIn.isEqual(checkOut)) {
             throw new IllegalArgumentException("Check-out date must be after check-in date");
@@ -235,12 +251,12 @@ public class HotelServiceImpl implements HotelService {
                         .build())
                 .build();
     }
+
     @Override
     @Transactional(readOnly = true)
     public List<HotelAvailabilityDto> searchAvailableRooms(LocalDate checkIn, LocalDate checkOut, Integer guests,
                                                            String city, Integer starRating, BigDecimal maxPrice) {
         log.info("Searching available rooms across all hotels: dates {} to {}, guests: {}", checkIn, checkOut, guests);
-
 
         Specification<Hotel> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -256,15 +272,11 @@ public class HotelServiceImpl implements HotelService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-
         List<Hotel> hotels = hotelRepository.findAll(spec);
         List<HotelAvailabilityDto> results = new ArrayList<>();
 
-
         for (Hotel hotel : hotels) {
-
             List<RoomType> roomTypes = roomTypeRepository.findByHotelIdAndCapacityGreaterThanEqual(hotel.getId(), guests);
-
 
             if (maxPrice != null) {
                 roomTypes = roomTypes.stream()
@@ -273,7 +285,6 @@ public class HotelServiceImpl implements HotelService {
             }
 
             List<RoomTypeAvailabilityDto> availableRooms = new ArrayList<>();
-
 
             for (RoomType roomType : roomTypes) {
                 List<Booking> overlapping = bookingRepository.findOverlappingBookings(
@@ -295,7 +306,6 @@ public class HotelServiceImpl implements HotelService {
                             .build());
                 }
             }
-
 
             if (!availableRooms.isEmpty()) {
                 long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
@@ -339,7 +349,8 @@ public class HotelServiceImpl implements HotelService {
         hotel.getImageUrls().addAll(imageUrls);
         Hotel updatedHotel = hotelRepository.save(hotel);
 
-        return mapToResponseDto(updatedHotel);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createHotelResponseDto(updatedHotel);
     }
 
     @Override
@@ -351,7 +362,8 @@ public class HotelServiceImpl implements HotelService {
         BeanUtils.copyProperties(request, hotel, "id", "createdAt", "roomTypes", "reviews");
         Hotel updatedHotel = hotelRepository.save(hotel);
 
-        return mapToResponseDto(updatedHotel);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createHotelResponseDto(updatedHotel);
     }
 
     @Override
@@ -362,7 +374,6 @@ public class HotelServiceImpl implements HotelService {
         Hotel hotel = hotelRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Hotel not found with id: " + id));
 
-        // Check for active bookings
         long activeBookings = bookingRepository.countByHotelIdAndStatus(id, BookingStatus.CONFIRMED);
 
         if (activeBookings > 0) {
@@ -371,7 +382,6 @@ public class HotelServiceImpl implements HotelService {
             );
         }
 
-        // Also check for pending bookings
         long pendingBookings = bookingRepository.countByHotelIdAndStatus(id, BookingStatus.PENDING);
         if (pendingBookings > 0) {
             throw new HotelHasActiveBookingsException(
@@ -381,96 +391,6 @@ public class HotelServiceImpl implements HotelService {
 
         hotelRepository.deleteById(id);
         log.info("Hotel {} deleted successfully", id);
-    }
-
-    private HotelResponseDto mapToResponseDto(Hotel hotel) {
-        HotelResponseDto dto = new HotelResponseDto();
-        BeanUtils.copyProperties(hotel, dto);
-        return dto;
-    }
-
-    private HotelDetailResponseDto mapToDetailDto(Hotel hotel) {
-        List<RoomTypeSummaryDto> roomTypeSummaries = hotel.getRoomTypes().stream()
-                .map(rt -> RoomTypeSummaryDto.builder()
-                        .id(rt.getId())
-                        .name(rt.getName())
-                        .capacity(rt.getCapacity())
-                        .basePrice(rt.getBasePrice())
-                        .bedType(rt.getBedType())
-                        .amenities(rt.getAmenities())
-                        .imageUrl(rt.getImageUrls().isEmpty() ? null : rt.getImageUrls().get(0))
-                        .available(true)
-                        .build())
-                .collect(Collectors.toList());
-
-        Long wishlistCount = wishlistService.getWishlistCount(hotel.getId());
-
-        return HotelDetailResponseDto.builder()
-                // Basic info
-                .id(hotel.getId())
-                .name(hotel.getName())
-                .description(hotel.getDescription())
-                .city(hotel.getCity())
-                .country(hotel.getCountry())
-                .address(hotel.getAddress())
-                .zipCode(hotel.getZipCode())
-                .latitude(hotel.getLatitude())
-                .longitude(hotel.getLongitude())
-                .starRating(hotel.getStarRating())
-                .contactEmail(hotel.getContactEmail())
-                .contactPhone(hotel.getContactPhone())
-                .website(hotel.getWebsite())
-                .checkInTime(hotel.getCheckInTime())
-                .checkOutTime(hotel.getCheckOutTime())
-                .totalRooms(hotel.getTotalRooms())
-
-                // Policies
-                .childrenAllowed(hotel.getChildrenAllowed())
-                .petsAllowed(hotel.getPetsAllowed())
-                .petPolicy(hotel.getPetPolicy())
-                .smokingAllowed(hotel.getSmokingAllowed())
-                .smokingPolicy(hotel.getSmokingPolicy())
-                .cancellationPolicy(hotel.getCancellationPolicy())
-                .paymentPolicy(hotel.getPaymentPolicy())
-                .checkInInstructions(hotel.getCheckInInstructions())
-
-                // Features
-                .amenities(new ArrayList<>(hotel.getAmenities()))
-                .imageUrls(hotel.getImageUrls())
-                .spokenLanguages(hotel.getSpokenLanguages())
-                .nearbyAttractions(hotel.getNearbyAttractions())
-
-                // Room Types
-                .roomTypes(roomTypeSummaries)
-
-                // Stats
-                .averageRating(hotel.getAverageRating())
-                .reviewCount(hotel.getReviewCount())
-                .featured(hotel.getFeatured())
-                .featuredOrder(hotel.getFeaturedOrder())
-                .dealTag(hotel.getDealTag())
-                .wishlistCount(wishlistCount)
-                .build();
-    }
-
-    private HotelSearchResponseDto mapToSearchDto(Hotel hotel) {
-        BigDecimal minPrice = hotel.getRoomTypes().stream()
-                .map(RoomType::getBasePrice)
-                .min(BigDecimal::compareTo)
-                .orElse(BigDecimal.ZERO);
-
-        return HotelSearchResponseDto.builder()
-                .id(hotel.getId())
-                .name(hotel.getName())
-                .city(hotel.getCity())
-                .country(hotel.getCountry())
-                .starRating(hotel.getStarRating())
-                .mainImageUrl(hotel.getImageUrls().isEmpty() ? null : hotel.getImageUrls().get(0))
-                .averageRating(hotel.getAverageRating() != null ? hotel.getAverageRating() : 0.0)
-                .reviewCount(hotel.getReviewCount() != null ? hotel.getReviewCount() : 0)
-                .priceFrom(minPrice)
-                .available(true)
-                .build();
     }
 
     @Override
@@ -504,6 +424,7 @@ public class HotelServiceImpl implements HotelService {
 
         updateHotelAverageRating(hotel);
 
+        // DESIGN PATTERN: OBSERVER - Could publish a review event here
         log.info("Review added with ID: {}", savedReview.getId());
 
         return mapToReviewDto(savedReview);
@@ -587,6 +508,7 @@ public class HotelServiceImpl implements HotelService {
         Hotel updatedHotel = hotelRepository.save(hotel);
         log.info("Image removed successfully. Remaining images: {}", updatedHotel.getImageUrls().size());
 
-        return mapToResponseDto(updatedHotel);
+        // DESIGN PATTERN: FACTORY METHOD
+        return dtoMapperFactory.createHotelResponseDto(updatedHotel);
     }
 }
