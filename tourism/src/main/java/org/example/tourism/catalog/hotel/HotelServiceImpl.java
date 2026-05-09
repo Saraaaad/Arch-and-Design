@@ -52,11 +52,14 @@ public class HotelServiceImpl implements HotelService {
 
     @Override
     @Transactional
-    public HotelResponseDto createHotel(HotelRequestDto request) {
+    public HotelResponseDto createHotel(HotelRequestDto request, Long managerId) {
         log.info("Creating new hotel: {}", request.getName());
 
         Hotel hotel = new Hotel();
         BeanUtils.copyProperties(request, hotel);
+
+        // Set the manager ID
+        hotel.setManagerId(managerId);
 
         if (request.getAmenities() != null && !request.getAmenities().isEmpty()) {
             hotel.setAmenities(new HashSet<>(request.getAmenities()));
@@ -89,7 +92,7 @@ public class HotelServiceImpl implements HotelService {
         if (hotel.getBookingCount() == null) hotel.setBookingCount(0);
 
         Hotel savedHotel = hotelRepository.save(hotel);
-        log.info("Hotel created with ID: {}", savedHotel.getId());
+        log.info("Hotel created with ID: {} and managerId: {}", savedHotel.getId(), managerId);
 
         return mapToResponseDto(savedHotel);
     }

@@ -121,7 +121,7 @@ class HotelServiceImplTest {
         when(hotelRepository.save(any(Hotel.class))).thenReturn(hotel);
 
         // When
-        HotelResponseDto result = hotelService.createHotel(hotelRequest);
+        HotelResponseDto result = hotelService.createHotel(hotelRequest,null);
 
         // Then
         assertThat(result).isNotNull();

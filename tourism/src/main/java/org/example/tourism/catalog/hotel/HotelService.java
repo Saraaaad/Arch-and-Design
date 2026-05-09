@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface HotelService {
-    HotelResponseDto createHotel(HotelRequestDto hotelRequestDto);
+    HotelResponseDto createHotel(HotelRequestDto hotelRequestDto, Long managerId);
     HotelDetailResponseDto getHotelDetail(Long id);
     HotelResponseDto updateHotel(Long id, HotelRequestDto hotelRequestDto);
 

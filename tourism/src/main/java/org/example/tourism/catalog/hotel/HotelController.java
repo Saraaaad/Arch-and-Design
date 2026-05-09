@@ -49,8 +49,14 @@ public class HotelController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER')")
     @Operation(summary = "Create a new hotel")
-    public HotelResponseDto createHotel(@Valid @RequestBody HotelRequestDto request) {
-        return hotelService.createHotel(request);
+    public HotelResponseDto createHotel(
+            @Valid @RequestBody HotelRequestDto request,
+            Authentication authentication) {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long userId = jwt.getClaim("userId");
+
+        return hotelService.createHotel(request, userId);
     }
 
     @GetMapping("/{id}")
@@ -102,9 +108,12 @@ public class HotelController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER') and @hotelSecurity.isOwner(#id, authentication)")
     @Operation(summary = "Update hotel")
-    public HotelResponseDto updateHotel(@PathVariable Long id, @Valid @RequestBody HotelRequestDto request) {
+    public HotelResponseDto updateHotel(
+            @PathVariable Long id,
+            @Valid @RequestBody HotelRequestDto request,
+            Authentication authentication) {
         return hotelService.updateHotel(id, request);
     }
 
@@ -117,7 +126,7 @@ public class HotelController {
     }
 
     @PostMapping("/{id}/upload-images")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER') and @hotelSecurity.isOwner(#id, authentication)")
     @Operation(summary = "Upload hotel images", description = "Upload actual image files for a hotel")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Images uploaded successfully"),
@@ -128,7 +137,8 @@ public class HotelController {
     })
     public ResponseEntity<List<String>> uploadHotelImages(
             @PathVariable Long id,
-            @RequestParam("images") List<MultipartFile> images) {
+            @RequestParam("images") List<MultipartFile> images,
+            Authentication authentication) {
 
         log.info("Uploading {} images for hotel ID: {}", images.size(), id);
 
@@ -166,7 +176,7 @@ public class HotelController {
 
 
     @DeleteMapping("/{hotelId}/images")
-    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'HOTEL_MANAGER') and @hotelSecurity.isOwner(#hotelId, authentication)")
     @Operation(summary = "Delete hotel image", description = "Remove an image from a hotel (deletes file and removes URL)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Image deleted successfully"),
@@ -175,7 +185,8 @@ public class HotelController {
     })
     public ResponseEntity<Void> deleteHotelImage(
             @PathVariable Long hotelId,
-            @RequestParam String imageUrl) {
+            @RequestParam String imageUrl,
+            Authentication authentication) {
 
         log.info("Deleting image: {} from hotel ID: {}", imageUrl, hotelId);
 

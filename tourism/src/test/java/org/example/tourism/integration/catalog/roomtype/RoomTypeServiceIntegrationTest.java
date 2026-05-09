@@ -47,7 +47,7 @@ public class RoomTypeServiceIntegrationTest {
         hotelRequest.setAmenities(new ArrayList<>());
         hotelRequest.setImageUrls(new ArrayList<>());
 
-        testHotel = hotelService.createHotel(hotelRequest);
+        testHotel = hotelService.createHotel(hotelRequest,null);
 
         // Create room type request
         roomTypeRequest = new RoomTypeRequestDto();

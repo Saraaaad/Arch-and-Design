@@ -48,7 +48,7 @@ public class HotelServiceIntegrationTest {
     @Test
     void createHotel_ShouldSucceed_WhenValidRequest() {
         // When
-        HotelResponseDto result = hotelService.createHotel(hotelRequest);
+        HotelResponseDto result = hotelService.createHotel(hotelRequest,null);
 
         // Then
         assertThat(result).isNotNull();
@@ -61,7 +61,7 @@ public class HotelServiceIntegrationTest {
     @Test
     void getHotelDetail_ShouldReturnHotel_WhenExists() {
         // Given
-        HotelResponseDto created = hotelService.createHotel(hotelRequest);
+        HotelResponseDto created = hotelService.createHotel(hotelRequest,null);
 
         // When
         var result = hotelService.getHotelDetail(created.getId());
@@ -83,7 +83,7 @@ public class HotelServiceIntegrationTest {
     @Test
     void updateHotel_ShouldUpdateFields_WhenValidRequest() {
         // Given
-        HotelResponseDto created = hotelService.createHotel(hotelRequest);
+        HotelResponseDto created = hotelService.createHotel(hotelRequest,null);
 
         HotelRequestDto updateRequest = new HotelRequestDto();
         updateRequest.setName("Updated Hotel Name");
@@ -107,7 +107,7 @@ public class HotelServiceIntegrationTest {
     @Test
     void searchHotels_ShouldReturnResults_WhenMatchingCriteria() {
         // Given
-        hotelService.createHotel(hotelRequest);
+        hotelService.createHotel(hotelRequest,null);
 
         HotelRequestDto secondHotel = new HotelRequestDto();
         secondHotel.setName("Another Hotel");
@@ -118,7 +118,7 @@ public class HotelServiceIntegrationTest {
         secondHotel.setDescription("Another hotel");
         secondHotel.setAmenities(new ArrayList<>());
         secondHotel.setImageUrls(new ArrayList<>());
-        hotelService.createHotel(secondHotel);
+        hotelService.createHotel(secondHotel,null);
 
         HotelSearchCriteria criteria = HotelSearchCriteria.builder()
                 .city("Test City")
@@ -137,7 +137,7 @@ public class HotelServiceIntegrationTest {
     @Test
     void deleteHotel_ShouldRemoveHotel_WhenExists() {
         // Given
-        HotelResponseDto created = hotelService.createHotel(hotelRequest);
+        HotelResponseDto created = hotelService.createHotel(hotelRequest,null);
 
         // When
         hotelService.deleteHotel(created.getId());

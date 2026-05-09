@@ -83,7 +83,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment savedPayment = paymentRepository.save(payment);
 
         if (success) {
-            log.info("✅ Payment successful for booking ID: {}, transaction ID: {}", booking.getId(), transactionId);
+            log.info("Payment successful for booking ID: {}, transaction ID: {}", booking.getId(), transactionId);
 
             // Confirm the booking
             BookingResponseDto confirmedBooking = bookingService.confirmBooking(booking.getId());
@@ -109,7 +109,7 @@ public class PaymentServiceImpl implements PaymentService {
                 log.error("Failed to send notification for booking {}: {}", booking.getId(), e.getMessage());
             }
         } else {
-            log.error("❌ Payment failed for booking ID: {}", booking.getId());
+            log.error("Payment failed for booking ID: {}", booking.getId());
         }
 
         return mapToDto(savedPayment);
@@ -176,7 +176,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setRefundedAmount(payment.getAmount());
             Payment refundedPayment = paymentRepository.save(payment);
 
-            log.info("✅ Refund successful for payment ID: {}, booking ID: {}", paymentId, payment.getBookingId());
+            log.info("Refund successful for payment ID: {}, booking ID: {}", paymentId, payment.getBookingId());
 
             // Cancel the booking when refund is processed
             try {
@@ -203,7 +203,7 @@ public class PaymentServiceImpl implements PaymentService {
                 log.error("Failed to send refund notification: {}", e.getMessage());
             }
         } else {
-            log.error("❌ Refund failed for payment ID: {}", paymentId);
+            log.error("Refund failed for payment ID: {}", paymentId);
             throw new IllegalStateException("Refund processing failed");
         }
 
